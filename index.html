@@ -1,0 +1,254 @@
+<!doctype html>
+
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SYSTEME_OS_IA — Carte interactive (single file)</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#6ee7b7; --muted:#94a3b8; --glass: rgba(255,255,255,0.04);
+      --node-w:160px; --node-h:56px; --radius:12px; --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;font-family:var(--font-sans);background:linear-gradient(180deg,#071022 0%, #071426 60%);color:#e6eef8}
+    .app{display:grid;grid-template-columns:360px 1fr;gap:18px;height:100vh;padding:18px;box-sizing:border-box}
+    .sidebar{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:14px;padding:16px;box-shadow:0 6px 24px rgba(4,6,12,0.6);backdrop-filter: blur(6px)}
+    .title{font-size:18px;font-weight:700;margin-bottom:6px}
+    .desc{color:var(--muted);font-size:13px;margin-bottom:12px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .btn{background:var(--card);border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px;color:var(--accent);font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent;color:var(--muted);border:1px dashed rgba(255,255,255,0.04)}
+    .legend{margin-top:10px;font-size:13px}
+    .legend-item{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .dot{width:12px;height:12px;border-radius:4px}
+    .canvas-wrap{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));padding:12px;box-shadow: inset 0 1px 0 rgba(255,255,255,0.02)}
+    svg{width:100%;height:100%;display:block}
+    .panel{position:absolute;right:18px;top:18px;width:320px;background:var(--card);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 30px rgba(2,6,12,0.7)}
+    .panel h3{margin:0 0 8px 0;font-size:15px}
+    .panel p{margin:0;color:var(--muted);font-size:13px}
+    .node{fill:var(--glass);stroke:rgba(255,255,255,0.03);stroke-width:1.2}
+    .node:hover{filter:drop-shadow(0 8px 24px rgba(0,0,0,0.6))}
+    .node-text{font-weight:700;fill:#e6eef8;font-size:13px}
+    .node-sub{fill:var(--muted);font-size:12px}
+    .link{stroke:rgba(110,231,183,0.14);stroke-width:2}
+    .highlight{stroke:rgba(110,231,183,0.6)!important}
+    .tooltip{position:absolute;background:#071426;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);font-size:13px;color:var(--muted);pointer-events:none;transform:translate(-50%,-120%);min-width:220px}
+    .search{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit}
+    .footer{position:absolute;left:18px;bottom:18px;color:var(--muted);font-size:12px}
+    /* responsive */
+    @media (max-width:880px){.app{grid-template-columns:1fr;height:100vh}.sidebar{position:fixed;left:8px;top:8px;z-index:40;width:calc(100% - 16px)}.panel{display:none}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="title">SYSTEME_OS_IA — Carte interactive</div>
+      <div class="desc">Visualisation architecture — modules IA, iso, APK, proxies, USB, sécurité. Cliquez sur un bloc pour afficher les détails. Exportable en PNG.</div><input id="search" class="search" placeholder="Rechercher un module (ex: USB, APK, ISO)..." />
+
+  <div class="controls">
+    <button id="resetBtn" class="btn">Réinitialiser</button>
+    <button id="fitBtn" class="btn ghost">Ajuster</button>
+    <button id="exportBtn" class="btn">Exporter PNG</button>
+    <button id="toggleGrid" class="btn ghost">Grille</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:var(--accent)"></div>Composant IA</div>
+    <div class="legend-item"><div class="dot" style="background:#60a5fa"></div>Infrastructures (ISO / APK / Web)</div>
+    <div class="legend-item"><div class="dot" style="background:#fda4af"></div>Sécurité & Tunnel</div>
+  </div>
+
+  <div style="margin-top:12px;font-size:13px;color:var(--muted)">Conseils rapides : cliquez, faites glisser pour déplacer la carte, utilisez la molette pour zoomer.</div>
+</aside>
+
+<main class="canvas-wrap" id="canvasWrap">
+  <svg id="svg" viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#000" flood-opacity="0.6"/>
+      </filter>
+    </defs>
+
+    <!-- links (lines) -->
+    <g id="links" stroke-linecap="round"></g>
+
+    <!-- nodes container -->
+    <g id="nodes"></g>
+
+    <!-- grid optional -->
+    <g id="grid"></g>
+
+  </svg>
+
+  <div class="panel" id="panel">
+    <h3 id="panelTitle">Sélectionnez un module</h3>
+    <p id="panelContent">Cliquez sur un bloc pour voir les informations détaillées. Exemple : 'NetSecurePro_USB_RemoteAccess'</p>
+  </div>
+
+  <div class="footer">NetSecurePro IA — by Zoubirou Mohammed Ilyes</div>
+</main>
+
+  </div>  <div id="tooltip" class="tooltip" style="display:none"></div>  <script>
+    // --- Data model (modules) ---
+    const modules = [
+      {id:'core_iso', title:'Noyau ISO', subtitle:'VM_NETSECURE_IA.iso', x:680,y:120,group:'infra',desc:'Système Live Debian personnalisé, menu IA, verrouillage locke0, scripts d\'init.'},
+      {id:'web_console', title:'Console Web', subtitle:'index.html / WebUI', x:320,y:180,group:'ia',desc:'Interface web IA intégrée pour contrôle, dashboards et assistants.'},
+      {id:'assistants', title:'Assistants IA', subtitle:'GPT / Agents', x:1000,y:180,group:'ia',desc:'Modules assistant (GPT, agents spécialisés, GPT-4o button intégré).'},
+      {id:'holo_lab', title:'HOLO-LAB', subtitle:'Simulations', x:540,y:360,group:'ia',desc:'Environnement expérimental pour tests IA et simulations holo.'},
+      {id:'mobile_apk', title:'APK Mobile', subtitle:'NetSecurePro APK', x:1080,y:360,group:'infra',desc:'APK Flutter WebView avec WebUI locale, splash, QR de téléchargement.'},
+      {id:'proxy_launcher', title:'IA Proxy Launcher', subtitle:'hybride local/online', x:260,y:420,group:'infra',desc:'Proxy local Flask + launcher adaptatif, fallback online/offline.'},
+      {id:'usb_remote', title:'USB RemoteAccess', subtitle:'Module USB', x:860,y:540,group:'security',desc:'Détection USB, tunnel sécurisé (Cloudflare/Ngrok), contrôle distant.'},
+      {id:'locke0', title:'locke0', subtitle:'Verrouillage IA', x:680,y:600,group:'security',desc:'Verrouillage IA au démarrage, fichier ~/.netsecure_lock, mot-clé unlock_ai.'},
+      {id:'powershell_cl8', title:'PowerShell_CL8', subtitle:'Launcher / Scripts', x:420,y:640,group:'infra',desc:'Scripts launcher, binaires, intégration Termux et APK.'},
+      {id:'usb_tools', title:'Commandes CLI', subtitle:'Termux / CLI', x:1100,y:640,group:'ia',desc:'Menu CLI interactif, commandes extraites OCR, bouton IA intégré.'},
+    ];
+
+    const links = [
+      ['core_iso','web_console'],['web_console','assistants'],['web_console','holo_lab'],['web_console','proxy_launcher'],
+      ['proxy_launcher','usb_remote'],['usb_remote','locke0'],['core_iso','mobile_apk'],['powershell_cl8','mobile_apk'],['powershell_cl8','usb_tools'],['assistants','usb_tools']
+    ];
+
+    // --- SVG helpers ---
+    const svg = document.getElementById('svg');
+    const nodesG = document.getElementById('nodes');
+    const linksG = document.getElementById('links');
+    const gridG = document.getElementById('grid');
+
+    // Draw grid (initially hidden)
+    function drawGrid(){
+      gridG.innerHTML='';
+      const w=1400,h=900,step=40;
+      for(let x=0;x<w;x+=step){
+        const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1',x);l.setAttribute('y1',0);l.setAttribute('x2',x);l.setAttribute('y2',h);l.setAttribute('stroke','rgba(255,255,255,0.02)');l.setAttribute('stroke-width','1');gridG.appendChild(l);
+      }
+      for(let y=0;y<h;y+=step){
+        const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1',0);l.setAttribute('y1',y);l.setAttribute('x2',1400);l.setAttribute('y2',y);l.setAttribute('stroke','rgba(255,255,255,0.02)');l.setAttribute('stroke-width','1');gridG.appendChild(l);
+      }
+      gridG.style.display='none';
+    }
+    drawGrid();
+
+    // Draw links
+    function drawLinks(){
+      linksG.innerHTML='';
+      links.forEach(([a,b])=>{
+        const ma=modules.find(m=>m.id===a);const mb=modules.find(m=>m.id===b);
+        const line=document.createElementNS('http://www.w3.org/2000/svg','path');
+        const dx=mb.x-ma.x;const dy=mb.y-ma.y;const hx=ma.x+dx*0.5;
+        const d=`M ${ma.x} ${ma.y} C ${hx} ${ma.y} ${hx} ${mb.y} ${mb.x} ${mb.y}`;
+        line.setAttribute('d',d);line.setAttribute('fill','none');line.setAttribute('class','link');linksG.appendChild(line);
+      });
+    }
+
+    // Draw nodes
+    function drawNodes(filter){
+      nodesG.innerHTML='';
+      modules.forEach(m=>{
+        if(filter && !m.title.toLowerCase().includes(filter) && !m.subtitle.toLowerCase().includes(filter)) return;
+        const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('transform',`translate(${m.x-80},${m.y-28})`);
+        g.setAttribute('data-id',m.id);
+
+        const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('width',160);rect.setAttribute('height',56);rect.setAttribute('rx',12);rect.setAttribute('class','node');
+        rect.setAttribute('filter','url(#softShadow)');
+
+        const t1=document.createElementNS('http://www.w3.org/2000/svg','text');
+        t1.setAttribute('x',14);t1.setAttribute('y',20);t1.setAttribute('class','node-text');t1.textContent=m.title;
+        const t2=document.createElementNS('http://www.w3.org/2000/svg','text');
+        t2.setAttribute('x',14);t2.setAttribute('y',40);t2.setAttribute('class','node-sub');t2.textContent=m.subtitle;
+
+        g.appendChild(rect);g.appendChild(t1);g.appendChild(t2);
+        nodesG.appendChild(g);
+
+        // interactivity
+        g.addEventListener('mouseenter',e=>showTooltip(e,m));
+        g.addEventListener('mouseleave',hideTooltip);
+        g.addEventListener('click',e=>selectModule(m.id));
+      });
+    }
+
+    drawLinks();drawNodes();
+
+    // Tooltip
+    const tooltip=document.getElementById('tooltip');
+    function showTooltip(e,m){
+      tooltip.style.display='block';
+      tooltip.innerHTML=`<strong style="color:var(--accent)">${m.title}</strong><div style="margin-top:6px;color:var(--muted);font-size:13px">${m.desc}</div>`;
+      const rect=e.currentTarget.getBoundingClientRect();
+      const svgRect=svg.getBoundingClientRect();
+      tooltip.style.left=(rect.left+rect.width/2)+'px';
+      tooltip.style.top=(rect.top - 8)+'px';
+    }
+    function hideTooltip(){tooltip.style.display='none'}
+
+    // Panel selection
+    function selectModule(id){
+      const m=modules.find(x=>x.id===id);
+      document.getElementById('panelTitle').textContent = m.title;
+      document.getElementById('panelContent').innerHTML = `<strong>Identifiant :</strong> ${m.id}<br><strong>Rôle :</strong> ${m.subtitle}<br><br>${m.desc}`;
+      // highlight related links
+      Array.from(linksG.children).forEach(p=>p.classList.remove('highlight'));
+      // simple highlight: highlight links that contain id
+      Array.from(linksG.children).forEach((path,i)=>{
+        const [a,b]=links[i]; if(a===id||b===id) path.classList.add('highlight');
+      });
+    }
+
+    // Controls
+    document.getElementById('resetBtn').addEventListener('click',()=>{document.getElementById('search').value=''; drawNodes(); drawLinks(); document.getElementById('panelTitle').textContent='Sélectionnez un module';document.getElementById('panelContent').textContent='Cliquez sur un bloc pour voir les informations détaillées. Exemple : "NetSecurePro_USB_RemoteAccess"';});
+    document.getElementById('fitBtn').addEventListener('click',()=>{svg.setAttribute('viewBox','0 0 1400 900')});
+    document.getElementById('toggleGrid').addEventListener('click',()=>{gridG.style.display = gridG.style.display==='none' ? 'block' : 'none'});
+
+    // Search
+    document.getElementById('search').addEventListener('input',e=>{const v=e.target.value.trim().toLowerCase();drawNodes(v)});
+
+    // Pan & Zoom (basic)
+    let viewX=0,viewY=0,zoom=1,isPanning=false,startX=0,startY=0;
+    const wrap=document.getElementById('canvasWrap');
+    wrap.addEventListener('wheel',e=>{
+      e.preventDefault();const step=0.1;zoom += (e.deltaY>0? -step: step);zoom=Math.min(2.5,Math.max(0.45,zoom));
+      const vbW=1400/zoom, vbH=900/zoom; const vbX=(1400-vbW)/2; const vbY=(900-vbH)/2; svg.setAttribute('viewBox',`${vbX} ${vbY} ${vbW} ${vbH}`);
+    },{passive:false});
+
+    wrap.addEventListener('pointerdown',e=>{isPanning=true;startX=e.clientX;startY=e.clientY;wrap.style.cursor='grabbing';});
+    window.addEventListener('pointerup',()=>{isPanning=false;wrap.style.cursor='default'});
+    wrap.addEventListener('pointermove',e=>{if(!isPanning) return; const dx=(startX-e.clientX); const dy=(startY-e.clientY); startX=e.clientX; startY=e.clientY; const vb=svg.getAttribute('viewBox').split(' ').map(Number); svg.setAttribute('viewBox',`${vb[0]+dx} ${vb[1]+dy} ${vb[2]} ${vb[3]}`);});
+
+    // Export PNG of SVG
+    document.getElementById('exportBtn').addEventListener('click',()=>{
+      const serializer = new XMLSerializer();
+      const clone = svg.cloneNode(true);
+      // inline computed styles
+      clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+      const svgStr = serializer.serializeToString(clone);
+      const img = new Image();
+      const svgBlob = new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+      const url = URL.createObjectURL(svgBlob);
+      img.onload = function(){
+        const canvas = document.createElement('canvas'); canvas.width=1400; canvas.height=900;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle='#071426'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function(blob){
+          const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='SYSTEME_OS_IA_map.png'; a.click();
+        });
+      };
+      img.src = url;
+    });
+
+    // Small accessibility: keyboard selection cycle
+    window.addEventListener('keydown',e=>{
+      if(e.key==='Tab'){
+        e.preventDefault(); const idx = modules.findIndex(m=>m.id===document.getElementById('panelTitle').getAttribute('data-id'));
+        const next = modules[(idx+1) % modules.length]; selectModule(next.id);
+      }
+    });
+
+    // Initial selection
+    selectModule('web_console');
+
+  </script></body>
+</html>
