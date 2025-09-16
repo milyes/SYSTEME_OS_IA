@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYSTEMEOSIAILYES - Interaction Linguistique</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f8ff;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2a4d75;
+        }
+        .langue {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #e6f0ff;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SYSTEMEOSIAILYES</h1>
+        <p>Interaction linguistique pour améliorer votre anglais et français.</p>
+        <div class="langue">
+            <label>Choisissez une langue pour commencer :</label>
+            <select id="langueSelect">
+                <option value="fr">Français</option>
+                <option value="en">Anglais</option>
+            </select>
+        </div>
+        <div class="langue">
+            <label>Entrez une phrase à traduire ou une question :</label>
+            <input type="text" id="inputTexte" placeholder="Tapez ici...">
+        </div>
+        <button onclick="traiterInput()">Envoyer</button>
+        <div id="resultat"></div>
+    </div>
+
+    <script>
+        function traiterInput() {
+            const langue = document.getElementById('langueSelect').value;
+            const texte = document.getElementById('inputTexte').value;
+            const resultatDiv = document.getElementById('resultat');
+            
+            let reponse = '';
+            if (langue === 'fr') {
+                reponse = `Vous avez choisi le français. Texte : "${texte}"`;
+                // Ici on pourrait ajouter une logique de traitement/traduction
+            } else if (langue === 'en') {
+                reponse = `You chose English. Text: "${texte}"`;
+                // Logique pour anglais
+            }
+            
+            resultatDiv.innerText = reponse;
+        }
+    </script>
+</body>
+</html>
